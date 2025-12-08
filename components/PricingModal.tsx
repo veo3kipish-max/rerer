@@ -7,7 +7,7 @@ interface PricingModalProps {
     onSelectPackage: (pkg: any) => void;
     currentTier?: string;
     currentUser?: { dbUserId?: string; credits?: number };
-    onPaymentSuccess?: (addedCredits: number) => void;
+    onPaymentSuccess?: (addedCredits: number, newTier?: string) => void;
 }
 
 export const PricingModal: React.FC<PricingModalProps> = ({
@@ -136,7 +136,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                         if (status === 'paid') {
                             alert('✅ Payment successful! Credits will be added shortly.');
                             onClose();
-                            if (onPaymentSuccess) onPaymentSuccess(pkg.credits);
+                            if (onPaymentSuccess) onPaymentSuccess(pkg.credits, pkg.tier);
                         } else if (status === 'failed') {
                             alert('Payment failed. Please try again.');
                         }

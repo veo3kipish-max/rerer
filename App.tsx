@@ -699,12 +699,13 @@ const App: React.FC = () => {
             onClose={() => setShowPricing(false)}
             currentTier={currentUser?.subscriptionTier}
             currentUser={currentUser}
-            onPaymentSuccess={async (addedCredits) => {
+            onPaymentSuccess={async (addedCredits, newTier) => {
               // Optimistic UI Update: Immediately update credits in local state
               if (currentUser) {
                 const optimisticUser = {
                   ...currentUser,
-                  credits: (currentUser.credits || 0) + addedCredits
+                  credits: (currentUser.credits || 0) + addedCredits,
+                  subscriptionTier: newTier || currentUser.subscriptionTier // Update tier if provided
                 };
                 setCurrentUser(optimisticUser);
                 localStorage.setItem('ai_studio_user', JSON.stringify(optimisticUser));
