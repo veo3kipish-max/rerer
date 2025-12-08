@@ -28,8 +28,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     const loadData = async () => {
         if (!currentUser.dbUserId) return;
 
-        console.log("Loading stats for DB User ID:", currentUser.dbUserId); // Debug log
-
         setIsLoading(true);
         try {
             const [gens, userStats] = await Promise.all([
@@ -37,7 +35,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 generationService.getUserStats(currentUser.dbUserId)
             ]);
 
-            console.log("Loaded stats:", userStats); // Debug log
             setRecentGenerations(gens);
             setStats(userStats);
         } catch (e) {
@@ -262,11 +259,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 {/* Footer */}
                 <div className="p-4 bg-slate-900 border-t border-slate-800 flex-shrink-0 flex flex-col gap-2">
                     <button onClick={onClose} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors text-sm">Закрыть профиль</button>
-                    {/* Debug Info (Temporary) */}
-                    <div className="p-2 bg-black/20 rounded text-[10px] text-slate-500 font-mono">
-                        DEBUG: UserID: {currentUser.dbUserId}<br />
-                        Stats: T={stats.total} / S={stats.successful}<br />
-                        Open Console (F12) for more details.
+                    <div className="text-[9px] text-center text-slate-600 font-mono">
+                        v2.3 • {new Date().getFullYear()}
                     </div>
 
                     <p className="text-xs text-slate-500">

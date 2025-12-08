@@ -293,7 +293,6 @@ export const generationService = {
 
     // Get user stats
     async getUserStats(userId: string): Promise<{ total: number; successful: number }> {
-        console.log('Fetching stats for user:', userId);
         const { count: total, error: totalError } = await supabase
             .from('generations')
             .select('*', { count: 'exact', head: true })
@@ -308,8 +307,6 @@ export const generationService = {
             .eq('status', 'completed');
 
         if (successError) console.error('Error fetching success stats:', successError);
-
-        console.log('Stats result:', { total, successful });
 
         return {
             total: total || 0,
