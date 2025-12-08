@@ -153,14 +153,22 @@ serve(async (req) => {
                     console.error('Error fetching user for credit update:', fetchError)
                 } else {
                     const newCredits = (user?.credits || 0) + creditsToAdd
+                    const updateData: any = { credits: newCredits };
+
+                    // Update subscription tier if purchasing a subscription
+                    if (packageId.startsWith('sub_')) {
+                        const newTier = packageId.replace('sub_', '');
+                        updateData.subscription_tier = newTier;
+                    }
+
                     const { error: updateError } = await supabaseAdmin
                         .from('users')
-                        .update({ credits: newCredits })
+                        .update(updateData)
                         .eq('id', userId)
                         .select()
 
                     if (updateError) {
-                        console.error('Error updating credits:', updateError)
+                        console.error('Error updating credits/tier:', updateError)
                     } else {
                         console.log(`Successfully added ${creditsToAdd} credits to user ${userId}. New balance: ${newCredits}`)
                     }

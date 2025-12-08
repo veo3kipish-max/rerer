@@ -100,7 +100,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                         amount: pkg.price,
                         credits: pkg.credits,
                         userId: currentUser!.dbUserId,
-                        packageId: pkg.id
+                        packageId: pkg.id,
+                        tier: pkg.tier // Pass tier to backend
                     })
                 });
 

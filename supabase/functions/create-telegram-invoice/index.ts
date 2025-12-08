@@ -11,7 +11,7 @@ serve(async (req) => {
     }
 
     try {
-        const { title, description, amount, credits, userId, packageId } = await req.json()
+        const { title, description, amount, credits, userId, packageId, tier } = await req.json()
 
         const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN')
         const providerTokenTest = Deno.env.get('TELEGRAM_PROVIDER_TOKEN_TEST')
@@ -41,7 +41,8 @@ serve(async (req) => {
             userId,
             packageId,
             type: 'credits',
-            credits
+            credits,
+            tier // Add tier to payload
         })
 
         const body = {
