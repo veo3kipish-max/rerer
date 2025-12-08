@@ -37,9 +37,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         {
             id: 'sub_light',
             tier: 'light',
-            title: 'Light',
+            title: 'Light (Promo)',
             credits: 30,
-            price: 49,
+            price: 1,
             features: ['30 photos/mo', 'SD quality', '5 locations'],
             active: currentTier === 'light'
         },
