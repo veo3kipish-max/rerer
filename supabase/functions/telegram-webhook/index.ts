@@ -71,12 +71,22 @@ serve(async (req) => {
                 .single()
 
             if (user) {
+                const updateData: any = {
+                    credits: (user.credits || 0) + payload.credits
+                };
+
+                // Update subscription tier if present (and not 'free' unless explicit downgrade logic exists, which is rare for purchase)
+                // Assuming payload.tier comes from the PricingModal package definition
+                if (payload.tier) {
+                    updateData.subscription_tier = payload.tier;
+                }
+
                 await supabase
                     .from('users')
-                    .update({ credits: user.credits + payload.credits })
+                    .update(updateData)
                     .eq('id', payload.userId)
 
-                console.log(`Added ${payload.credits} credits to user ${payload.userId}`)
+                console.log(`Updated user ${payload.userId}: +${payload.credits} credits${payload.tier ? `, tier -> ${payload.tier}` : ''}`)
             }
         }
 

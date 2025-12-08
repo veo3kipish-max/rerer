@@ -70,11 +70,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="relative w-full max-w-3xl bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4">
+            <div className="relative w-full max-w-lg md:max-w-xl bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
 
                 {/* Header with Gradient */}
-                <div className="relative bg-gradient-to-br from-purple-900/50 via-slate-800 to-slate-800 p-6 border-b border-slate-700">
+                <div className="relative bg-gradient-to-br from-purple-900/50 via-slate-800 to-slate-800 p-5 border-b border-slate-700 flex-shrink-0">
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors z-10"
@@ -121,7 +121,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
 
                 {/* Content */}
-                <div className="p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
 
                     {/* Quick Actions */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -260,7 +260,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 bg-slate-900/50 border-t border-slate-700/50 text-center">
+                <div className="p-4 bg-slate-900 border-t border-slate-800 flex-shrink-0 flex flex-col gap-2">
+                    <button onClick={onClose} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors text-sm">Закрыть профиль</button>
                     {/* Debug Info (Temporary) */}
                     <div className="p-2 bg-black/20 rounded text-[10px] text-slate-500 font-mono">
                         DEBUG: UserID: {currentUser.dbUserId}<br />
