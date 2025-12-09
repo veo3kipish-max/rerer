@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { generationService } from '../services/databaseService';
+import { GoogleDriveSettings } from './GoogleDriveSettings';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -18,6 +19,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     const [recentGenerations, setRecentGenerations] = useState<any[]>([]);
     const [stats, setStats] = useState({ total: 0, successful: 0 });
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'history' | 'settings'>('history');
 
     useEffect(() => {
         if (isOpen && currentUser.dbUserId) {
@@ -178,65 +180,110 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Recent Generations */}
-                    <div>
-                        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            История генераций
-                        </h3>
+                    {/* Tabs */}
+                    <div className="flex border-b border-slate-700 gap-4">
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === 'history' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                        >
+                            <div className="flex items-center justify-center gap-2">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                История
+                            </div>
+                            {activeTab === 'history' && (
+                                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 rounded-t-full"></div>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('settings')}
+                            className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === 'settings' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                        >
+                            <div className="flex items-center justify-center gap-2">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Настройки
+                            </div>
+                            {activeTab === 'settings' && (
+                                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 rounded-t-full"></div>
+                            )}
+                        </button>
+                    </div>
 
-                        <div className="bg-slate-700/20 border border-slate-600/30 rounded-xl overflow-hidden">
-                            {isLoading ? (
-                                <div className="p-8 text-center text-slate-400">
-                                    <div className="inline-block w-8 h-8 border-4 border-slate-600 border-t-purple-500 rounded-full animate-spin"></div>
-                                    <p className="mt-2 text-sm">Загрузка...</p>
-                                </div>
-                            ) : recentGenerations.length === 0 ? (
-                                <div className="p-8 text-center text-slate-400">
-                                    <svg className="w-16 h-16 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <p>Пока нет генераций</p>
-                                    <p className="text-xs mt-1">Создайте свою первую фотосессию!</p>
-                                </div>
-                            ) : (
-                                <div className="divide-y divide-slate-600/30">
-                                    {recentGenerations.slice(0, 5).map((gen) => (
-                                        <div key={gen.id} className="p-3 hover:bg-slate-700/30 transition-colors">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`inline-block w-2 h-2 rounded-full ${gen.status === 'completed' ? 'bg-green-500' :
-                                                            gen.status === 'processing' ? 'bg-yellow-500 animate-pulse' :
-                                                                gen.status === 'failed' ? 'bg-red-500' :
-                                                                    'bg-slate-500'
-                                                            }`}></span>
-                                                        <span className="text-sm font-medium text-white capitalize">{gen.mode}</span>
-                                                        <span className="text-xs text-slate-500">•</span>
-                                                        <span className="text-xs text-slate-400 uppercase">{gen.quality}</span>
+                    {/* Tab Content */}
+                    {activeTab === 'history' && (
+                        /* Recent Generations Section */
+                        <div>
+                            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                История генераций
+                            </h3>
+
+                            <div className="bg-slate-700/20 border border-slate-600/30 rounded-xl overflow-hidden">
+                                {isLoading ? (
+                                    <div className="p-8 text-center text-slate-400">
+                                        <div className="inline-block w-8 h-8 border-4 border-slate-600 border-t-purple-500 rounded-full animate-spin"></div>
+                                        <p className="mt-2 text-sm">Загрузка...</p>
+                                    </div>
+                                ) : recentGenerations.length === 0 ? (
+                                    <div className="p-8 text-center text-slate-400">
+                                        <svg className="w-16 h-16 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <p>Пока нет генераций</p>
+                                        <p className="text-xs mt-1">Создайте свою первую фотосессию!</p>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-600/30">
+                                        {recentGenerations.slice(0, 5).map((gen) => (
+                                            <div key={gen.id} className="p-3 hover:bg-slate-700/30 transition-colors">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={`inline-block w-2 h-2 rounded-full ${gen.status === 'completed' ? 'bg-green-500' :
+                                                                gen.status === 'processing' ? 'bg-yellow-500 animate-pulse' :
+                                                                    gen.status === 'failed' ? 'bg-red-500' :
+                                                                        'bg-slate-500'
+                                                                }`}></span>
+                                                            <span className="text-sm font-medium text-white capitalize">{gen.mode}</span>
+                                                            <span className="text-xs text-slate-500">•</span>
+                                                            <span className="text-xs text-slate-400 uppercase">{gen.quality}</span>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500">
+                                                            {new Date(gen.created_at).toLocaleString('ru-RU', {
+                                                                day: '2-digit',
+                                                                month: 'short',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-slate-500">
-                                                        {new Date(gen.created_at).toLocaleString('ru-RU', {
-                                                            day: '2-digit',
-                                                            month: 'short',
-                                                            hour: '2-digit',
-                                                            minute: '2-digit'
-                                                        })}
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-bold text-purple-400">{gen.image_count} фото</div>
+                                                        <div className="text-xs text-slate-500">-{gen.credits_used} ⚡</div>
                                                     </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-sm font-bold text-purple-400">{gen.image_count} фото</div>
-                                                    <div className="text-xs text-slate-500">-{gen.credits_used} ⚡</div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Settings Tab */}
+                    {activeTab === 'settings' && currentUser.dbUserId && (
+                        <div className="space-y-5">
+                            <GoogleDriveSettings userId={currentUser.dbUserId} />
+                        </div>
+                    )}
 
                     {/* Telegram Wallet Info */}
                     <div className="bg-gradient-to-r from-blue-900/20 to-cyan-900/20 border border-blue-700/30 rounded-xl p-4">
@@ -271,6 +318,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </p>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

@@ -12,6 +12,10 @@ create table public.users (
   credits integer default 5,
   subscription_tier text default 'free',
   subscription_expires_at timestamp with time zone,
+  google_drive_token text,
+  google_drive_refresh_token text,
+  google_drive_folder_id text,
+  google_drive_connected_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(auth_provider, auth_id)
 );
@@ -50,6 +54,7 @@ create table public.generations (
   status text default 'queued', -- 'queued', 'processing', 'completed', 'failed'
   credits_used integer default 0,
   result_urls text[],
+  google_drive_folder_url text,
   error_message text,
   queued_at timestamp with time zone default timezone('utc'::text, now()) not null,
   started_at timestamp with time zone,
