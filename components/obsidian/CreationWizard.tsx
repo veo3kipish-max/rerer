@@ -4,12 +4,14 @@ import { ChevronLeft, ChevronRight, UploadCloud, Camera, Check, X, Wand2 } from 
 interface WizardProps {
     onBack: () => void;
     onComplete: () => void;
+    onGenerate: (files: File[], style: string) => Promise<void>;
 }
 
-export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) => {
+export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete, onGenerate }) => {
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     // STEP 1: UPLOAD
     const renderUploadStep = () => (
@@ -30,7 +32,6 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
                                 <span className="text-xs text-gray-500">Tap to add</span>
                             </>
                         )}
-                        {/* Invisible file input overlay would go here for real implementation */}
                         <input
                             type="file"
                             accept="image/*"
@@ -43,6 +44,20 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
                                 }
                             }}
                         />
+                        {uploadedFiles[i] && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const newFiles = [...uploadedFiles];
+                                    newFiles[i] = undefined as any; // Hacky clear, better filter
+                                    // Actually we should store array of {file, index} or just filter out
+                                    setUploadedFiles(uploadedFiles.filter((_, idx) => idx !== i));
+                                }}
+                                className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
                     </div>
                 ))}
             </div>
@@ -58,6 +73,23 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
     );
 
     // STEP 2: STYLE SELECTION
+    const handleStartGeneration = async () => {
+        if (!selectedStyle || uploadedFiles.length === 0) return;
+
+        setStep(3);
+        setIsGenerating(true);
+
+        try {
+            await onGenerate(uploadedFiles, selectedStyle);
+            // Generation done
+            onComplete();
+        } catch (e: any) {
+            alert("Generation failed: " + e.message);
+            setStep(2); // Go back on error
+            setIsGenerating(false);
+        }
+    };
+
     const renderStyleStep = () => (
         <div className="space-y-6 animate-fadeIn">
             <div className="text-center space-y-2">
@@ -75,7 +107,6 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
                         <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40">
                             <span className="font-bold text-white">{style}</span>
                         </div>
-                        {/* Placeholder img */}
                         <img src={`https://source.unsplash.com/random/400x300/?${style}`} className="w-full h-full object-cover opacity-60" />
 
                         {selectedStyle === style && (
@@ -88,7 +119,7 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
             </div>
 
             <button
-                onClick={() => setStep(3)}
+                onClick={handleStartGeneration}
                 disabled={!selectedStyle}
                 className="w-full py-4 bg-violet-600 text-white rounded-full font-bold text-lg disabled:opacity-50 hover:bg-violet-500 transition-colors shadow-[0_0_20px_rgba(124,58,237,0.4)]"
             >
@@ -113,12 +144,9 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
                     Dreaming...
                 </h3>
                 <p className="text-gray-500 text-sm max-w-xs mx-auto">
-                    Our AI is analyzing your photos and painting your chosen aesthetic. This takes about 30 seconds.
+                    Creating your {selectedStyle} photos. <br />This usually takes about 30-40 seconds.
                 </p>
             </div>
-
-            {/* Mock finish button for now */}
-            <button onClick={onComplete} className="text-xs text-gray-700 mt-20">Debug: Finish</button>
         </div>
     );
 
@@ -133,7 +161,7 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete }) =>
                     <div className={`h-1 w-8 rounded-full transition-colors ${step >= 2 ? 'bg-violet-500' : 'bg-gray-800'}`}></div>
                     <div className={`h-1 w-8 rounded-full transition-colors ${step >= 3 ? 'bg-violet-500' : 'bg-gray-800'}`}></div>
                 </div>
-                <div className="w-10"></div> {/* Spacer */}
+                <div className="w-10"></div>
             </div>
 
             {step === 1 && renderUploadStep()}
