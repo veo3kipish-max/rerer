@@ -258,8 +258,38 @@ const App: React.FC = () => {
       }
 
       // Mark generation as complete in DB
+      // Mark generation as complete in DB
       if (currentGenerationId) {
         await generationService.updateGenerationStatus(currentGenerationId, 'completed');
+
+        // AUTO-UPLOAD TO GOOGLE DRIVE
+        if (currentUser?.dbUserId && newImages.length > 0) {
+          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_0aETJTgJJ5SZDXppAfRTnw_LO2_J_j6';
+
+          // Trigger upload in background (don't await to keep UI responsive)
+          fetch('https://ndrdksmdkhljymuvxjly.supabase.co/functions/v1/upload-to-drive', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`
+            },
+            body: JSON.stringify({
+              userId: currentUser.dbUserId,
+              generationId: currentGenerationId,
+              images: newImages.map(img => img.url)
+            })
+          }).then(async (res) => {
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success) {
+                // Optional: Show discrete notification
+                console.log('Images auto-uploaded to Google Drive:', data.folderUrl);
+              }
+            }
+          }).catch(err => {
+            console.log('Auto-upload skipped or failed (User might not have Drive connected):', err);
+          });
+        }
       }
 
       setAppState(AppState.COMPLETE);

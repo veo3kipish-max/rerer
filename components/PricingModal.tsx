@@ -18,7 +18,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({
     currentUser,
     onPaymentSuccess
 }) => {
-    const [paymentMethod, setPaymentMethod] = useState<'wayforpay' | 'ammerpay'>((window as any).Telegram?.WebApp?.initDataUnsafe?.user ? 'ammerpay' : 'wayforpay');
+
     const [activeTab, setActiveTab] = useState<'credits' | 'subs'>('credits');
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -73,142 +73,59 @@ export const PricingModal: React.FC<PricingModalProps> = ({
         try {
             setIsProcessing(true);
 
-            if (paymentMethod === 'ammerpay') {
-                // --- AMMER PAY / TELEGRAM LOGIC ---
-                const tg = (window as any).Telegram?.WebApp;
-                const chatId = tg?.initDataUnsafe?.user?.id;
+            // --- WAYFORPAY LOGIC ---
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_0aETJTgJJ5SZDXppAfRTnw_LO2_J_j6';
 
-                if (!chatId && !confirm('You are not in Telegram. Payment link will be opened in a new window. Continue?')) {
-                    setIsProcessing(false);
-                    return;
-                }
+            const response = await fetch('https://ndrdksmdkhljymuvxjly.supabase.co/functions/v1/create-wayforpay-invoice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${anonKey}`
+                },
+                body: JSON.stringify({
+                    amount: pkg.price,
+                    productName: pkg.label || pkg.title || 'Credits Package',
+                    productCount: 1,
+                    productPrice: pkg.price,
+                    userId: currentUser!.dbUserId,
+                    packageId: pkg.id
+                })
+            });
 
-                // Get Anon Key from environment
-                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_0aETJTgJJ5SZDXppAfRTnw_LO2_J_j6';
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Payment server error: ${response.status} ${errorText}`);
+            }
 
-                // Use direct fetch but with Authorization header
-                const response = await fetch('https://ndrdksmdkhljymuvxjly.supabase.co/functions/v1/create-telegram-invoice', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${anonKey}`
-                    },
-                    body: JSON.stringify({
-                        chatId: chatId,
-                        title: pkg.label || pkg.title,
-                        description: `AI Photo Studio - ${pkg.label || pkg.title}`,
-                        amount: pkg.price,
-                        credits: pkg.credits,
-                        userId: currentUser!.dbUserId,
-                        packageId: pkg.id,
-                        tier: pkg.tier // Pass tier to backend
-                    })
-                });
+            const data = await response.json();
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        // If we get 401 with Authorization header present, it means Verification is likely ON and Key is 'sb_', or Key is invalid.
-                        if (response.status === 401) {
-                            throw new Error('CRITICAL: Please disable "Enforce JWT Verification" in Supabase -> Edge Functions -> create-telegram-invoice -> Settings.');
-                        }
-                        throw new Error(errorJson.error || errorJson.details || errorText);
-                    } catch (e: any) {
-                        if (e.message.includes('CRITICAL')) throw e;
-                        throw new Error(`Server Error: ${response.status} ${errorText}`);
-                    }
-                }
+            // Create and submit hidden form
+            const form = document.createElement('form');
+            form.setAttribute('method', 'POST');
+            form.setAttribute('action', data.url);
+            form.setAttribute('target', '_self');
 
-                const data = await response.json();
-
-                if (!data?.invoice_url) {
-                    throw new Error('No invoice URL returned from server');
-                }
-
-                // Check for Web clients that might not support native payments with this provider
-                const platform = tg?.platform || 'unknown';
-                const isWebPlatform = ['weba', 'webk', 'web', 'unknown'].includes(platform);
-
-                if (tg && tg.openInvoice && !isWebPlatform) {
-                    // Native Mobile / Desktop App handling
-                    tg.openInvoice(data.invoice_url, (status: string) => {
-                        setIsProcessing(false);
-                        if (status === 'paid') {
-                            alert('✅ Payment successful! Credits will be added shortly.');
-                            onClose();
-                            if (onPaymentSuccess) onPaymentSuccess(pkg.credits, pkg.tier);
-                        } else if (status === 'failed') {
-                            alert('Payment failed. Please try again.');
-                        }
-                    });
-                } else {
-                    // Web Fallback: "Web A does not support payments with this provider" fix.
-                    // We open the invoice link directly. This redirects to the Bot or a Web Payment page.
-                    setIsProcessing(false);
-
-                    // Open in new tab/window to ensure it doesn't get blocked by Mini App constraints
-                    window.open(data.invoice_url, '_blank');
-
-                    alert('💸 Payment page opened in a new tab. \n\nPlease complete the payment there. Credits will be added automatically within 1-2 minutes.');
-                    onClose();
-                }
-
-            } else {
-                // --- WAYFORPAY LOGIC ---
-                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_0aETJTgJJ5SZDXppAfRTnw_LO2_J_j6';
-
-                const response = await fetch('https://ndrdksmdkhljymuvxjly.supabase.co/functions/v1/create-wayforpay-invoice', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${anonKey}`
-                    },
-                    body: JSON.stringify({
-                        amount: pkg.price,
-                        productName: pkg.label || pkg.title || 'Credits Package',
-                        productCount: 1,
-                        productPrice: pkg.price,
-                        userId: currentUser!.dbUserId,
-                        packageId: pkg.id
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Payment server error: ${response.status} ${errorText}`);
-                }
-
-                const data = await response.json();
-
-                // Create and submit hidden form
-                const form = document.createElement('form');
-                form.setAttribute('method', 'POST');
-                form.setAttribute('action', data.url);
-                form.setAttribute('target', '_self');
-
-                Object.keys(data.params).forEach(key => {
-                    const value = data.params[key];
-                    if (Array.isArray(value)) {
-                        value.forEach(val => {
-                            const input = document.createElement('input');
-                            input.setAttribute('type', 'hidden');
-                            input.setAttribute('name', key + '[]');
-                            input.setAttribute('value', String(val));
-                            form.appendChild(input);
-                        });
-                    } else {
+            Object.keys(data.params).forEach(key => {
+                const value = data.params[key];
+                if (Array.isArray(value)) {
+                    value.forEach(val => {
                         const input = document.createElement('input');
                         input.setAttribute('type', 'hidden');
-                        input.setAttribute('name', key);
-                        input.setAttribute('value', String(value));
+                        input.setAttribute('name', key + '[]');
+                        input.setAttribute('value', String(val));
                         form.appendChild(input);
-                    }
-                });
+                    });
+                } else {
+                    const input = document.createElement('input');
+                    input.setAttribute('type', 'hidden');
+                    input.setAttribute('name', key);
+                    input.setAttribute('value', String(value));
+                    form.appendChild(input);
+                }
+            });
 
-                document.body.appendChild(form);
-                form.submit();
-            }
+            document.body.appendChild(form);
+            form.submit();
 
         } catch (error: any) {
             console.error('Payment error:', error);
@@ -247,35 +164,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({
                     </button>
                     <h2 className="text-2xl font-bold text-white mb-2">Top Up Your Balance</h2>
                     <p className="text-slate-400 text-sm mb-4">Select a package to continue</p>
-
-                    {/* Payment Method Selector */}
-                    <div className="flex justify-center gap-4 mb-4">
-                        <button
-                            onClick={() => setPaymentMethod('wayforpay')}
-                            className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-32 ${paymentMethod === 'wayforpay'
-                                ? 'border-blue-500 bg-blue-900/30'
-                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                                }`}
-                        >
-                            <svg className="w-8 h-8 text-blue-400 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                            </svg>
-                            <span className={`text-xs font-bold ${paymentMethod === 'wayforpay' ? 'text-white' : 'text-slate-400'}`}>Card (UAH)</span>
-                        </button>
-
-                        <button
-                            onClick={() => setPaymentMethod('ammerpay')}
-                            className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all w-32 ${paymentMethod === 'ammerpay'
-                                ? 'border-blue-500 bg-blue-900/30'
-                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                                }`}
-                        >
-                            <svg className="w-8 h-8 text-blue-400 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            <span className={`text-xs font-bold ${paymentMethod === 'ammerpay' ? 'text-white' : 'text-slate-400'}`}>Telegram / Crypto</span>
-                        </button>
-                    </div>
                 </div>
 
                 <div className="flex border-b border-slate-700 px-6">

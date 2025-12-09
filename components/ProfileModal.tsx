@@ -265,9 +265,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                                             })}
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
+                                                    <div className="text-right flex flex-col items-end gap-1">
                                                         <div className="text-sm font-bold text-purple-400">{gen.image_count} фото</div>
                                                         <div className="text-xs text-slate-500">-{gen.credits_used} ⚡</div>
+                                                        {gen.google_drive_folder_url && (
+                                                            <a
+                                                                href={gen.google_drive_folder_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="mt-1 flex items-center gap-1 text-[10px] bg-slate-600/50 hover:bg-slate-600 text-white px-2 py-1 rounded transition-colors"
+                                                                title="Open in Google Drive"
+                                                            >
+                                                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z" />
+                                                                </svg>
+                                                                Drive
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -285,22 +299,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         </div>
                     )}
 
-                    {/* Telegram Wallet Info */}
-                    <div className="bg-gradient-to-r from-blue-900/20 to-cyan-900/20 border border-blue-700/30 rounded-xl p-4">
-                        <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 11.944 0Zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635Z" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <h4 className="text-sm font-bold text-white mb-1">Оплата через Telegram Wallet</h4>
-                                <p className="text-xs text-slate-400 leading-relaxed">
-                                    Быстрая и безопасная оплата через Telegram. Поддерживаются карты, криптовалюта и другие способы.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
 
                 {/* Footer */}

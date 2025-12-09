@@ -8,11 +8,14 @@ import {
     CreditCard, LogOut
 } from 'lucide-react';
 
-import { UserProfile } from './types';
+import { UserProfile, AppState, UploadedImage, GeneratedImage, PhotoshootPlan } from './types';
 import { AuthScreen } from './components/AuthScreen';
-import { userService } from './services/databaseService';
+import { userService, generationService } from './services/databaseService';
 import { PricingModal } from './components/PricingModal';
 import { ProfileModal } from './components/ProfileModal';
+import { planPhotoshoot, generateScenarioImage } from './services/geminiService';
+import { LoadingScreen } from './components/LoadingScreen'; // Reuse loading screen or build new one
+import { ResultGallery } from './components/ResultGallery';
 
 // --- API MOCK ---
 const mockGenerateAPI = async (params: any) => {
@@ -52,8 +55,8 @@ const VersionSwitcher = ({ version, setVersion }: { version: string, setVersion:
         <button
             onClick={() => setVersion('standard')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-300 ${version === 'standard'
-                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-white'
+                ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white'
                 }`}
         >
             <Sparkles size={12} />
@@ -62,8 +65,8 @@ const VersionSwitcher = ({ version, setVersion }: { version: string, setVersion:
         <button
             onClick={() => setVersion('pro')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-300 ${version === 'pro'
-                    ? 'bg-[#2a2b30] text-blue-400 border border-blue-500/30 shadow-lg'
-                    : 'text-gray-400 hover:text-white'
+                ? 'bg-[#2a2b30] text-blue-400 border border-blue-500/30 shadow-lg'
+                : 'text-gray-400 hover:text-white'
                 }`}
         >
             <BrainCircuit size={12} />
@@ -72,8 +75,8 @@ const VersionSwitcher = ({ version, setVersion }: { version: string, setVersion:
         <button
             onClick={() => setVersion('old')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all duration-300 ${version === 'old'
-                    ? 'bg-[#1E1E1E] text-white border border-gray-600 shadow-lg'
-                    : 'text-gray-400 hover:text-white'
+                ? 'bg-[#1E1E1E] text-white border border-gray-600 shadow-lg'
+                : 'text-gray-400 hover:text-white'
                 }`}
         >
             <History size={12} />
@@ -86,8 +89,122 @@ const VersionSwitcher = ({ version, setVersion }: { version: string, setVersion:
 const ProVersion = ({ currentUser }: { currentUser: UserProfile }) => {
     const [activeModel, setActiveModel] = useState('nanabanana');
     const [skinTexture, setSkinTexture] = useState(85);
-    const [uploadedPhotos, setUploadedPhotos] = useState([1, 2, 3]);
+    const [userPhotos, setUserPhotos] = useState<UploadedImage[]>([]);
+    const [positivePrompt, setPositivePrompt] = useState("Professional portrait, cinematic lighting, 8k, highly detailed");
+    const [imageCount, setImageCount] = useState(4);
+
+    // Generation State
+    const [appState, setAppState] = useState<AppState>(AppState.IDLE);
+    const [statusMessage, setStatusMessage] = useState("");
+    const [progress, setProgress] = useState(0);
+    const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+    const [photoshootPlan, setPhotoshootPlan] = useState<PhotoshootPlan | null>(null);
+
     const { isDriveConnected, driveUser, connectDrive, disconnectDrive } = useGoogleDrive();
+
+    const processFile = (file: File): Promise<UploadedImage> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64Full = reader.result as string;
+                const base64Data = base64Full.split(',')[1];
+                resolve({
+                    id: Math.random().toString(36).substr(2, 9),
+                    file,
+                    previewUrl: URL.createObjectURL(file), // Fixed property name
+                    base64Data,
+                    mimeType: file.type
+                });
+            };
+            reader.onerror = reject;
+        });
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            const processed = await Promise.all(files.map(processFile));
+            setUserPhotos(prev => [...prev, ...processed]);
+        }
+    };
+
+
+    const handleGenerate = async () => {
+        if (userPhotos.length === 0) {
+            alert("Загрузите хотя бы 1 фото!");
+            return;
+        }
+
+        try {
+            setAppState(AppState.ANALYZING);
+
+            // Credit Check
+            const requiredCredits = imageCount;
+            if (currentUser?.dbUserId && !(await userService.canGenerate(currentUser.dbUserId, requiredCredits))) {
+                alert("Недостаточно кредитов!");
+                setAppState(AppState.IDLE);
+                return;
+            }
+
+            setStatusMessage("Анализ внешности и подготовка плана...");
+            setProgress(10);
+
+            // 1. Plan
+            const plan = await planPhotoshoot(
+                userPhotos,
+                [], "", // No location photos/text for now in Lite UI
+                positivePrompt,
+                [], "", [], "", [], "", [], "", [], "", [], // Empty add-ons
+                imageCount,
+                false, // Not selfie mode forced
+                false // Not replicate mode
+            );
+            setPhotoshootPlan(plan);
+
+            // 2. Generate
+            setAppState(AppState.GENERATING);
+            let currentGenerationId: string | null = null;
+            if (currentUser.dbUserId) {
+                const gen = await generationService.createGeneration(currentUser.dbUserId, 'photoshoot', imageCount, 'hd', 'normal');
+                if (gen) currentGenerationId = gen.id;
+            }
+
+            const newImages: GeneratedImage[] = [];
+            for (let i = 0; i < imageCount; i++) {
+                setStatusMessage(`Генерация кадра ${i + 1}/${imageCount}...`);
+
+                const result = await generateScenarioImage(
+                    plan, i, userPhotos[i % userPhotos.length],
+                    positivePrompt, "",
+                    true, // Use PRO model
+                    undefined, false
+                );
+
+                newImages.push({
+                    id: `gen-${Date.now()}-${i}`,
+                    url: `data:image/png;base64,${result.base64}`,
+                    prompt: result.prompt
+                });
+
+                if (currentUser.dbUserId) await userService.deductCredits(currentUser.dbUserId, 1);
+                setGeneratedImages([...newImages]);
+                setProgress(20 + ((i + 1) / imageCount) * 80);
+            }
+
+            if (currentGenerationId) {
+                await generationService.updateGenerationStatus(currentGenerationId, 'completed');
+                // Auto-upload logic omitted for brevity here, can be added
+            }
+
+            setAppState(AppState.COMPLETE);
+
+        } catch (e: any) {
+            console.error(e);
+            setAppState(AppState.ERROR);
+            alert("Ошибка: " + e.message);
+        }
+    };
 
     return (
         <div className="bg-[#0f1014] text-gray-300 min-h-screen font-mono flex flex-col pt-16">
@@ -96,7 +213,7 @@ const ProVersion = ({ currentUser }: { currentUser: UserProfile }) => {
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                         <ScanFace size={16} />
-                        <span>FaceID Refs: <strong className="text-white">{uploadedPhotos.length}/10</strong></span>
+                        <span>Refs: <strong className="text-white">{userPhotos.length}/10</strong></span>
                     </div>
                     <div className="h-4 w-[1px] bg-gray-700"></div>
                     <div className="flex items-center gap-2 text-sm text-green-400">
@@ -105,74 +222,42 @@ const ProVersion = ({ currentUser }: { currentUser: UserProfile }) => {
                     </div>
                 </div>
                 <button
-                    onClick={() => mockGenerateAPI({ engine: activeModel, photosCount: uploadedPhotos.length, skinTexture })}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+                    onClick={handleGenerate}
+                    disabled={appState === AppState.GENERATING || appState === AppState.ANALYZING}
+                    className={`bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.3)] disabled:opacity-50`}
                 >
-                    <Wand2 size={16} />
-                    GENERATE SET
+                    {appState === AppState.GENERATING ? <div className="animate-spin w-4 h-4 border-2 border-white rounded-full border-t-white/10" /> : <Wand2 size={16} />}
+                    {appState === AppState.GENERATING ? 'PROCESSING...' : 'GENERATE SET'}
                 </button>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Left Sidebar */}
                 <div className="w-80 border-r border-[#2a2b30] bg-[#14151a] p-4 flex flex-col gap-6 overflow-y-auto">
-                    {/* Drive Auth Module */}
-                    <div className="bg-[#1c1d24] rounded-lg p-3 border border-[#2a2b30]">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-[10px] font-bold uppercase text-gray-500">Cloud Storage</span>
-                            {isDriveConnected && <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>}
-                        </div>
-
-                        {!isDriveConnected ? (
-                            <button
-                                onClick={connectDrive}
-                                className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded py-2 text-xs text-gray-300 transition-colors"
-                            >
-                                <Cloud size={14} />
-                                Connect Google Drive
-                            </button>
-                        ) : (
-                            <div>
-                                <div className="flex items-center gap-2 mb-2 bg-[#14151a] p-2 rounded border border-[#2a2b30]">
-                                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                                        {driveUser?.name[0]}
-                                    </div>
-                                    <div className="overflow-hidden">
-                                        <div className="text-xs font-bold text-white truncate">{driveUser?.name}</div>
-                                        <div className="text-[9px] text-gray-500 truncate">Connected</div>
-                                    </div>
-                                </div>
-                                <button
-                                    className="w-full py-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 rounded hover:bg-blue-900/50"
-                                >
-                                    Browse Drive Files
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Model Selector */}
+                    {/* Parameters */}
                     <div>
-                        <label className="text-xs font-bold text-gray-500 mb-3 block uppercase tracking-wider">Neural Engine</label>
-                        <div className="space-y-2">
-                            <div
-                                onClick={() => setActiveModel('nanabanana')}
-                                className={`p-3 rounded-lg border cursor-pointer transition-all ${activeModel === 'nanabanana' ? 'bg-blue-900/20 border-blue-500' : 'bg-[#1c1d24] border-[#2a2b30] hover:border-gray-500'}`}
-                            >
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="font-bold text-white text-sm">Nanabanana 3 Pro</span>
-                                    <span className="text-[10px] bg-blue-500 text-white px-1.5 rounded">NEW</span>
-                                </div>
-                                <p className="text-[10px] text-gray-400">Максимальный фотореализм. Специализация: текстура кожи, микродетали.</p>
+                        <label className="text-xs font-bold text-gray-500 mb-3 block uppercase tracking-wider">Settings</label>
+                        <div className="mb-4">
+                            <label className="text-xs text-gray-400 mb-1 block">Prompt / Scenario</label>
+                            <textarea
+                                className="w-full bg-[#1c1d24] border border-[#2a2b30] rounded p-2 text-xs text-white focus:border-blue-500 transition-colors outline-none"
+                                rows={3}
+                                placeholder="Cinematic portrait..."
+                                value={positivePrompt}
+                                onChange={e => setPositivePrompt(e.target.value)}
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <div className="flex justify-between text-xs mb-1">
+                                <span>Images Count</span>
+                                <span className="text-blue-400">{imageCount}</span>
                             </div>
-
-                            <div
-                                onClick={() => setActiveModel('flux')}
-                                className={`p-3 rounded-lg border cursor-pointer transition-all ${activeModel === 'flux' ? 'bg-blue-900/20 border-blue-500' : 'bg-[#1c1d24] border-[#2a2b30] hover:border-gray-500'}`}
-                            >
-                                <span className="font-bold text-white text-sm block mb-1">Flux 1.0 Realism</span>
-                                <p className="text-[10px] text-gray-400">Хорошая анатомия, высокая скорость.</p>
-                            </div>
+                            <input
+                                type="range" min="1" max="10"
+                                value={imageCount}
+                                onChange={(e) => setImageCount(parseInt(e.target.value))}
+                                className="w-full h-1 bg-[#2a2b30] rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                            />
                         </div>
                     </div>
 
@@ -180,27 +265,28 @@ const ProVersion = ({ currentUser }: { currentUser: UserProfile }) => {
                     <div>
                         <label className="text-xs font-bold text-gray-500 mb-3 flex justify-between uppercase tracking-wider">
                             <span>Reference Set</span>
-                            <span className="text-blue-400 hover:text-blue-300 cursor-pointer">+ Add</span>
+                            <label htmlFor="upload-ref" className="text-blue-400 hover:text-blue-300 cursor-pointer">+ Add</label>
+                            <input id="upload-ref" type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
                         </label>
                         <div className="grid grid-cols-4 gap-2">
-                            {[...Array(uploadedPhotos.length)].map((_, i) => (
+                            {userPhotos.map((img, i) => (
                                 <div key={i} className="aspect-square rounded bg-[#2a2b30] border border-[#3f414a] overflow-hidden relative group">
-                                    <img src={`https://images.unsplash.com/photo-${1500000000000 + i}?w=100&h=100&fit=crop`} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                                    <img src={img.previewUrl} className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => setUserPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                                        className="absolute top-0 right-0 p-0.5 bg-black/50 text-white opacity-0 group-hover:opacity-100"
+                                    >
+                                        <X size={10} />
+                                    </button>
                                 </div>
                             ))}
-                            {uploadedPhotos.length < 10 && (
-                                <div className="aspect-square rounded border border-dashed border-[#3f414a] flex items-center justify-center text-gray-600 hover:text-white hover:border-gray-400 cursor-pointer transition-colors">
+                            {userPhotos.length < 10 && (
+                                <label htmlFor="upload-ref" className="aspect-square rounded border border-dashed border-[#3f414a] flex items-center justify-center text-gray-600 hover:text-white hover:border-gray-400 cursor-pointer transition-colors">
                                     <UploadCloud size={16} />
-                                </div>
+                                </label>
                             )}
                         </div>
-                        {isDriveConnected && (
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-blue-400 cursor-pointer hover:underline">
-                                <Cloud size={10} />
-                                Import selected from Drive
-                            </div>
-                        )}
-                        <p className="text-[10px] text-gray-500 mt-2">Загрузите 1-10 фото для калибровки IP-Adapter.</p>
+                        <p className="text-[10px] text-gray-500 mt-2">Загрузите 1-10 фото вашего лица.</p>
                     </div>
                 </div>
 
@@ -209,23 +295,34 @@ const ProVersion = ({ currentUser }: { currentUser: UserProfile }) => {
                     <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 pointer-events-none"></div>
 
                     <div className="max-w-4xl w-full h-full flex flex-col">
-                        <div className="flex-1 border border-[#2a2b30] rounded-lg bg-[#14151a] relative group overflow-hidden flex items-center justify-center">
-                            <div className="text-center">
-                                <div className="w-16 h-16 rounded-full bg-[#1c1d24] flex items-center justify-center mx-auto mb-4 border border-[#2a2b30]">
-                                    <Sparkles className="text-gray-600" />
+                        {appState === AppState.IDLE && generatedImages.length === 0 ? (
+                            <div className="flex-1 border border-[#2a2b30] rounded-lg bg-[#14151a] relative group overflow-hidden flex items-center justify-center">
+                                <div className="text-center">
+                                    <div className="w-16 h-16 rounded-full bg-[#1c1d24] flex items-center justify-center mx-auto mb-4 border border-[#2a2b30]">
+                                        <Sparkles className="text-gray-600" />
+                                    </div>
+                                    <h3 className="text-gray-400 font-medium">Workspace Ready</h3>
+                                    <p className="text-sm text-gray-600 mt-2 max-w-xs mx-auto">
+                                        Настройте параметры слева и нажмите Generate.
+                                    </p>
                                 </div>
-                                <h3 className="text-gray-400 font-medium">Workspace Ready</h3>
-                                <p className="text-sm text-gray-600 mt-2 max-w-xs mx-auto">
-                                    Nanabanana 3 Pro is active. Configure your reference set and parameters to start generating realistic portraits.
-                                </p>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="flex-1 overflow-y-auto">
+                                {appState !== AppState.COMPLETE && generatedImages.length === 0 ? (
+                                    <LoadingScreen status={statusMessage} progress={progress} />
+                                ) : (
+                                    <ResultGallery images={generatedImages} plan={photoshootPlan} onReset={() => { }} isValidating={false} initialSelectedIndex={0} />
+                                )}
+                            </div>
+                        )}
 
                         {/* Timeline */}
                         <div className="h-24 mt-4 grid grid-cols-6 gap-2">
-                            {[1, 2, 3, 4, 5, 6].map(i => (
-                                <div key={i} className="bg-[#14151a] border border-[#2a2b30] rounded flex items-center justify-center text-xs text-gray-600 hover:border-gray-500 cursor-pointer transition-colors">
-                                    Slot {i}
+                            {/* Simplified timeline for now */}
+                            {generatedImages.map((img, i) => (
+                                <div key={i} className="bg-[#14151a] border border-[#2a2b30] rounded overflow-hidden cursor-pointer hover:border-blue-500">
+                                    <img src={img.url} className="w-full h-full object-cover" />
                                 </div>
                             ))}
                         </div>
@@ -235,7 +332,6 @@ const ProVersion = ({ currentUser }: { currentUser: UserProfile }) => {
         </div>
     );
 };
-
 // 3. STANDARD VERSION (Lite / Vibrant)
 const StandardVersion = ({ currentUser }: { currentUser: UserProfile }) => {
     const { isDriveConnected, connectDrive } = useGoogleDrive();
@@ -264,7 +360,7 @@ const StandardVersion = ({ currentUser }: { currentUser: UserProfile }) => {
 
                     <div className="flex flex-col items-center gap-4">
                         <div className="flex justify-center gap-4 flex-col sm:flex-row items-center w-full max-w-lg mx-auto">
-                            <button onClick={() => mockGenerateAPI({ engine: 'lite', prompt: 'vibrant' })} className="w-full sm:w-auto px-8 py-4 rounded-full bg-white text-slate-950 font-bold hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-xl shadow-white/10">
+                            <button onClick={() => alert("Пожалуйста, переключитесь на PRO версию. Standard генерация временно недоступна.")} className="w-full sm:w-auto px-8 py-4 rounded-full bg-white text-slate-950 font-bold hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-xl shadow-white/10">
                                 <Camera size={20} />
                                 Загрузить фото
                             </button>
