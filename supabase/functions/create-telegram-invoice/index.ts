@@ -40,7 +40,7 @@ serve(async (req) => {
         const payload = JSON.stringify({
             userId,
             packageId,
-            type: 'credits',
+            type: tier ? 'subscription' : 'credits', // Set type based on tier
             credits,
             tier // Add tier to payload
         })
