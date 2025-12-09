@@ -41,13 +41,8 @@ export const GoogleDriveSettings: React.FC<GoogleDriveSettingsProps> = ({
 
     const handleConnect = async () => {
         try {
-            // Get Google OAuth URL from environment
-            const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-            if (!clientId) {
-                alert('Google Client ID not configured. Please contact support.');
-                return;
-            }
+            // Google OAuth Configuration
+            const clientId = '993386293176-npvb254p75ucen6rodhmf1ei94inlg15.apps.googleusercontent.com';
 
             const redirectUri = `${window.location.origin}/google-drive-callback`;
             const scope = 'https://www.googleapis.com/auth/drive.file';
@@ -218,7 +213,7 @@ export const GoogleDriveSettings: React.FC<GoogleDriveSettingsProps> = ({
                     {/* Hidden Link for Auth */}
                     <a
                         id="google-auth-link"
-                        href={`https://accounts.google.com/o/oauth2/v2/auth?client_id=${import.meta.env.VITE_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(`${window.location.origin}/google-drive-callback`)}&response_type=code&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&access_type=offline&prompt=consent&state=${encodeURIComponent(JSON.stringify({ userId }))}`}
+                        href={`https://accounts.google.com/o/oauth2/v2/auth?client_id=993386293176-npvb254p75ucen6rodhmf1ei94inlg15.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(`${window.location.origin}/google-drive-callback`)}&response_type=code&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&access_type=offline&prompt=consent&state=${encodeURIComponent(JSON.stringify({ userId }))}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hidden"
