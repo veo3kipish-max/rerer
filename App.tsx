@@ -8,6 +8,7 @@ import { MultiSelect } from './components/MultiSelect';
 import { AuthScreen } from './components/AuthScreen'; // Import AuthScreen
 import { PricingModal } from './components/PricingModal';
 import { ProfileModal } from './components/ProfileModal';
+import { GoogleDriveCallback } from './components/GoogleDriveCallback';
 import { planPhotoshoot, generateScenarioImage } from './services/geminiService';
 import { userService, generationService } from './services/databaseService';
 
@@ -314,6 +315,11 @@ const App: React.FC = () => {
     setPhotoshootPlan(null);
     setProgress(0);
   };
+
+  // Handle Google Drive Callback Route
+  if (window.location.pathname === '/google-drive-callback') {
+    return <GoogleDriveCallback />;
+  }
 
   // If not authenticated, show AuthScreen
   if (!currentUser) {
