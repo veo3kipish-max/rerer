@@ -29,7 +29,14 @@ create table public.payments (
   telegram_charge_id text,
   status text default 'pending', -- 'pending', 'completed', 'failed'
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  completed_at timestamp with time zone
+  completed_at timestamp with time zone,
+  
+  -- Constraints
+  CONSTRAINT check_payment_type CHECK (
+    (type = 'subscription' AND tier IS NOT NULL) 
+    OR 
+    (type = 'credits' AND tier IS NULL AND credits IS NOT NULL)
+  )
 );
 
 -- GENERATIONS TABLE
