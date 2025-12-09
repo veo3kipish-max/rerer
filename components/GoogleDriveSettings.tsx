@@ -215,14 +215,54 @@ export const GoogleDriveSettings: React.FC<GoogleDriveSettingsProps> = ({
                         </ul>
                     </div>
 
+                    {/* Hidden Link for Auth */}
+                    <a
+                        id="google-auth-link"
+                        href={`https://accounts.google.com/o/oauth2/v2/auth?client_id=${import.meta.env.VITE_GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(`${window.location.origin}/google-drive-callback`)}&response_type=code&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}&access_type=offline&prompt=consent&state=${encodeURIComponent(JSON.stringify({ userId }))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden"
+                    >
+                        Connect
+                    </a>
+
                     <button
-                        onClick={handleConnect}
+                        onClick={() => {
+                            // Trigger the link click programmatically or fallback to manual click
+                            const link = document.getElementById('google-auth-link') as HTMLAnchorElement;
+                            if (link) {
+                                link.click();
+                                setIsLoading(true);
+                                // Start polling
+                                const startTime = Date.now();
+                                const pollInterval = setInterval(async () => {
+                                    if (Date.now() - startTime > 120000) {
+                                        clearInterval(pollInterval);
+                                        setIsLoading(false);
+                                        return;
+                                    }
+                                    const { data } = await supabase
+                                        .from('users')
+                                        .select('google_drive_token, google_drive_connected_at')
+                                        .eq('id', userId)
+                                        .single();
+                                    if (data && data.google_drive_token) {
+                                        clearInterval(pollInterval);
+                                        setIsConnected(true);
+                                        setConnectedAt(data.google_drive_connected_at);
+                                        setIsLoading(false);
+                                        if (onConnect) onConnect();
+                                        alert('✅ Google Drive connected successfully!');
+                                    }
+                                }, 3000);
+                            }
+                        }}
                         className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z" />
                         </svg>
-                        Connect Google Drive
+                        Connect Google Drive (Open Browser)
                     </button>
                 </>
             )}
