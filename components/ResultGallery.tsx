@@ -188,16 +188,25 @@ export const ResultGallery: React.FC<ResultGalleryProps> = ({ images, plan, onRe
               <span className="text-slate-400 text-sm">
                 {selectedIndex + 1} / {images.length}
               </span>
-              <a
-                href={images[selectedIndex].url}
-                download={`photoset-${selectedIndex + 1}.png`}
+              <button
+                onClick={async () => {
+                  try {
+                    const img = images[selectedIndex];
+                    const res = await fetch(img.url);
+                    const blob = await res.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, '_blank');
+                  } catch (e) {
+                    alert('Ошибка сохранения. Попробуйте долгое нажатие на фото.');
+                  }
+                }}
                 className="px-6 py-2 bg-white hover:bg-slate-200 text-slate-900 rounded-full font-bold text-sm transition-colors shadow-lg flex items-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Скачать
-              </a>
+                Сохранить (открыть)
+              </button>
 
               <button
                 onClick={async (e) => {
@@ -237,6 +246,9 @@ export const ResultGallery: React.FC<ResultGalleryProps> = ({ images, plan, onRe
                 Поделиться
               </button>
             </div>
+            <p className="mt-4 text-xs text-slate-500 md:hidden opacity-70 text-center px-4">
+              Совет: Если кнопка не работает, зажмите фото пальцем, чтобы сохранить его в галерею.
+            </p>
 
 
           </div>
