@@ -62,33 +62,40 @@ export const GoogleDriveSettings: React.FC<GoogleDriveSettingsProps> = ({
                 `&prompt=consent` +
                 `&state=${encodeURIComponent(state)}`;
 
-            // Open auth window
-            const width = 600;
-            const height = 700;
-            const left = window.screenX + (window.outerWidth - width) / 2;
-            const top = window.screenY + (window.outerHeight - height) / 2;
+            // Open in NEW TAB (fixes blocking in Telegram/Iframes)
+            window.open(authUrl, '_blank');
+            setIsLoading(true);
 
-            const authWindow = window.open(
-                authUrl,
-                'Google Drive Authorization',
-                `width=${width},height=${height},left=${left},top=${top}`
-            );
-
-            // Listen for callback
-            const messageHandler = async (event: MessageEvent) => {
-                if (event.data.type === 'google-drive-connected') {
-                    window.removeEventListener('message', messageHandler);
-                    await checkConnection();
-                    if (onConnect) onConnect();
-                    if (authWindow) authWindow.close();
+            // Start polling for connection (since we can't use postMessage from external browser)
+            const startTime = Date.now();
+            const pollInterval = setInterval(async () => {
+                // Stop after 2 minutes
+                if (Date.now() - startTime > 120000) {
+                    clearInterval(pollInterval);
+                    setIsLoading(false);
+                    return;
                 }
-            };
 
-            window.addEventListener('message', messageHandler);
+                const { data } = await supabase
+                    .from('users')
+                    .select('google_drive_token, google_drive_connected_at')
+                    .eq('id', userId)
+                    .single();
+
+                if (data && data.google_drive_token) {
+                    clearInterval(pollInterval);
+                    setIsConnected(true);
+                    setConnectedAt(data.google_drive_connected_at);
+                    setIsLoading(false);
+                    if (onConnect) onConnect();
+                    alert('✅ Google Drive connected successfully!');
+                }
+            }, 3000); // Check every 3 seconds
 
         } catch (error) {
             console.error('Failed to connect Google Drive', error);
             alert('Failed to connect Google Drive. Please try again.');
+            setIsLoading(false);
         }
     };
 
