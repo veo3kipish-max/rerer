@@ -8,6 +8,8 @@ import { userService, generationService } from './services/databaseService';
 import { planPhotoshoot, generateScenarioImage } from './services/geminiService';
 import { UserProfile, UploadedImage, GeneratedImage } from './types';
 import { ResultGallery } from './components/ResultGallery';
+import { ObsidianPro } from './components/obsidian/ObsidianPro';
+import { PricingModal } from './components/PricingModal';
 
 const AppV2 = () => {
     const [currentTab, setCurrentTab] = useState('home');
@@ -18,6 +20,7 @@ const AppV2 = () => {
 
     // Content State
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+    const [showPricing, setShowPricing] = useState(false);
 
     useEffect(() => {
         const initAuth = async () => {
@@ -87,27 +90,33 @@ const AppV2 = () => {
         });
     };
 
-    const handleWizardGenerate = async (files: File[], style: string) => {
+    const handleWizardGenerate = async (files: File[], style: string, gender: string) => {
         if (!currentUser?.dbUserId) throw new Error("Please log in to generate");
 
         // 1. Check Credits
         const imageCount = 4;
         const hasCredits = await userService.canGenerate(currentUser.dbUserId, imageCount);
-        if (!hasCredits) throw new Error("Not enough credits! Please top up.");
+        if (!hasCredits) {
+            setShowPricing(true);
+            throw new Error("Not enough credits! Please top up.");
+        }
 
         // 2. Prepare Files
         const uploaded = await Promise.all(files.map(processFile));
 
-        // 3. Map Style
+        // 3. Map Style (Realistic Photoshoots)
+        const genderTerm = gender === 'man' ? 'man' : 'woman';
+        const genderAdj = gender === 'man' ? 'male' : 'female';
+
         const stylePrompts: Record<string, string> = {
-            'Cyberpunk': 'Futuristic cyberpunk portrait, neon lights, high tech, urban scifi, detailed face',
-            'Old Money': 'Old money aesthetic, quiet luxury, elegant portrait, beige and navy, wealthy look',
-            'Studio': 'Professional studio headshot, grey background, soft lighting, 8k resolution, sharp focus',
-            'Fantasy': 'Ethereal fantasy portrait, magical glowing lights, digital art, rpg character',
-            'Business': 'Corporate headshot, suit, office background, confident look, linkedin profile photo',
-            'Neon': 'Synthwave aesthetic, pink and blue lighting, retro 80s style, vaporwave'
+            'Business': `Professional ${genderTerm} in business suit, corporate headshot, office background, confident ${genderAdj} model, linkedin profile`,
+            'Casual': `Casual lifestyle portrait of a ${genderTerm}, relaxed atmosphere, city street background, natural lighting, stylish outfit`,
+            'Evening': `Elegant ${genderTerm} in evening wear, luxury event setting, cinematic lighting, high fashion photography`,
+            'Gym': `Athletic ${genderTerm} in fitness gear, gym environment, workout, healthy lifestyle, energetic pose`,
+            'Travel': `Travel lifestyle portrait of a ${genderTerm}, scenic vacation background, golden hour, happy and adventurous`,
+            'Date': `Romantic date night style, ${genderTerm} in stylish outfit, restaurant or evening city background, warm lighting`
         };
-        const prompt = stylePrompts[style] || style;
+        const prompt = stylePrompts[style] || `${style} portrait of a ${genderTerm}`;
 
         // 4. Plan & Generate
         const plan = await planPhotoshoot(uploaded, [], "", prompt, [], "", [], "", [], "", [], "", [], "", [], imageCount, false, false);
@@ -170,13 +179,9 @@ const AppV2 = () => {
                 );
             case 'pro':
                 return (
-                    <div className="pt-4">
-                        <h2 className="text-2xl font-bold text-white mb-4 pl-2">Pro Tools</h2>
-                        <div className="text-center text-gray-500 py-20 bg-[#121214] rounded-3xl border border-dashed border-white/10">
-                            Advanced Generation Engine
-                            <br />
-                            <span className="text-xs text-violet-500">Coming Soon to v2</span>
-                        </div>
+                    <div className="pt-4 h-full">
+                        <h2 className="text-2xl font-bold text-white mb-4 pl-2">Pro Studio</h2>
+                        {currentUser ? <ObsidianPro currentUser={currentUser} /> : <div className="text-center text-gray-500">Please log in to use Pro tools.</div>}
                     </div>
                 );
             case 'profile':
@@ -191,6 +196,12 @@ const AppV2 = () => {
                                 <div className="font-bold text-white text-lg">{currentUser?.name}</div>
                                 <div className="text-sm text-gray-500">Credits: <span className="text-violet-400 font-bold">{currentUser?.credits}</span></div>
                             </div>
+                            <button
+                                onClick={() => setShowPricing(true)}
+                                className="px-3 py-1 bg-violet-600 rounded-full text-xs font-bold text-white hover:bg-violet-500 mr-2"
+                            >
+                                Top Up
+                            </button>
                             <button onClick={handleLogout} className="p-2 bg-white/5 rounded-full hover:bg-red-500/20 text-gray-400 hover:text-red-500 transition-colors">
                                 <LogOut size={20} />
                             </button>
@@ -209,6 +220,17 @@ const AppV2 = () => {
     return (
         <ObsidianShell currentTab={currentTab} onTabChange={handleTabChange}>
             {renderContent()}
+            <PricingModal
+                isOpen={showPricing}
+                onClose={() => setShowPricing(false)}
+                currentUser={currentUser || undefined}
+                onSelectPackage={() => { }}
+                onPaymentSuccess={(added) => {
+                    setCurrentUser(prev => prev ? ({ ...prev, credits: (prev.credits || 0) + added }) : null);
+                    setShowPricing(false);
+                    alert(`Successfully added ${added} credits!`);
+                }}
+            />
         </ObsidianShell>
     );
 };

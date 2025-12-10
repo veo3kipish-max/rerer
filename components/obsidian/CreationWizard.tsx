@@ -4,12 +4,13 @@ import { ChevronLeft, ChevronRight, UploadCloud, Camera, Check, X, Wand2 } from 
 interface WizardProps {
     onBack: () => void;
     onComplete: () => void;
-    onGenerate: (files: File[], style: string) => Promise<void>;
+    onGenerate: (files: File[], style: string, gender: string) => Promise<void>;
 }
 
 export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete, onGenerate }) => {
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+    const [gender, setGender] = useState<'man' | 'woman'>('woman');
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -80,12 +81,11 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete, onGe
         setIsGenerating(true);
 
         try {
-            await onGenerate(uploadedFiles, selectedStyle);
-            // Generation done
+            await onGenerate(uploadedFiles, selectedStyle, gender);
             onComplete();
         } catch (e: any) {
             alert("Generation failed: " + e.message);
-            setStep(2); // Go back on error
+            setStep(2);
             setIsGenerating(false);
         }
     };
@@ -93,23 +93,48 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete, onGe
     const renderStyleStep = () => (
         <div className="space-y-6 animate-fadeIn">
             <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold text-white">Choose Aesthetic</h2>
-                <p className="text-sm text-gray-400">Select the vibe for your photoshoot.</p>
+                <h2 className="text-2xl font-bold text-white">Choose Scenario</h2>
+                <p className="text-sm text-gray-400">Where do you want to be?</p>
+            </div>
+
+            {/* Gender Switch */}
+            <div className="flex justify-center mb-4">
+                <div className="bg-[#1c1c1f] p-1 rounded-full flex border border-white/10">
+                    <button
+                        onClick={() => setGender('woman')}
+                        className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${gender === 'woman' ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Woman
+                    </button>
+                    <button
+                        onClick={() => setGender('man')}
+                        className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${gender === 'man' ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Man
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-                {['Cyberpunk', 'Old Money', 'Studio', 'Fantasy', 'Business', 'Neon'].map((style) => (
+                {[
+                    { id: 'Business', label: 'Business' },
+                    { id: 'Casual', label: 'Casual' },
+                    { id: 'Evening', label: 'Evening' },
+                    { id: 'Gym', label: 'Fitness' },
+                    { id: 'Travel', label: 'Travel' },
+                    { id: 'Date', label: 'Date Night' }
+                ].map((item) => (
                     <div
-                        key={style}
-                        onClick={() => setSelectedStyle(style)}
-                        className={`aspect-video rounded-xl bg-[#1c1c1f] border-2 relative overflow-hidden cursor-pointer transition-all ${selectedStyle === style ? 'border-violet-500 shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'border-transparent hover:border-white/20'}`}
+                        key={item.id}
+                        onClick={() => setSelectedStyle(item.id)}
+                        className={`aspect-video rounded-xl bg-[#1c1c1f] border-2 relative overflow-hidden cursor-pointer transition-all ${selectedStyle === item.id ? 'border-violet-500 shadow-[0_0_15px_rgba(124,58,237,0.4)]' : 'border-transparent hover:border-white/20'}`}
                     >
-                        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40">
-                            <span className="font-bold text-white">{style}</span>
+                        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 group-hover:bg-black/30 transition-colors">
+                            <span className="font-bold text-white">{item.label}</span>
                         </div>
-                        <img src={`https://source.unsplash.com/random/400x300/?${style}`} className="w-full h-full object-cover opacity-60" />
+                        <img src={`https://source.unsplash.com/random/400x300/?${item.label.toLowerCase()},portrait`} className="w-full h-full object-cover opacity-60" />
 
-                        {selectedStyle === style && (
+                        {selectedStyle === item.id && (
                             <div className="absolute top-2 right-2 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center z-20">
                                 <Check size={14} className="text-white" />
                             </div>
@@ -123,7 +148,7 @@ export const CreationWizard: React.FC<WizardProps> = ({ onBack, onComplete, onGe
                 disabled={!selectedStyle}
                 className="w-full py-4 bg-violet-600 text-white rounded-full font-bold text-lg disabled:opacity-50 hover:bg-violet-500 transition-colors shadow-[0_0_20px_rgba(124,58,237,0.4)]"
             >
-                Generate Magic
+                Create Photoshoot
             </button>
         </div>
     );
